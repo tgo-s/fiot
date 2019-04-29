@@ -4,4 +4,4 @@ A new Flutter project to test MQTT for studies purposes - Federal University of 
 
 ## Getting Started
 
-Based on the project of [shamblett](https://github.com/shamblett/mqtt_client/tree/master/example)
+Based on the project of [shamblett](https://github.com/shamblett/mqtt_client/tree/master/example/flutter)
