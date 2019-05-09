@@ -1,7 +1,12 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:mqtt_client/mqtt_client.dart' as mqtt;
 import 'package:fiot/models/message.dart';
 import 'package:fiot/dialogs/send/message.dart';
@@ -13,9 +18,22 @@ class MyApp extends StatefulWidget {
   _MyAppState createState() => _MyAppState();
 }
 
+/* Firebase */
+
+_handleButtons(String text) async {
+  _sendToDB(text);
+}
+
+void _sendToDB(String text) {
+  Firestore.instance
+      .collection("FanCommands")
+      .add({"sender": "Paulo", "timestamp": DateTime.now(), "command": text});
+}
+
 class _MyAppState extends State<MyApp> {
   PageController _pageController;
   int _page = 0;
+  String _lastTemperature = "10";
 
   String broker = 'broker.hivemq.com';
   mqtt.MqttClient client;
@@ -63,6 +81,7 @@ class _MyAppState extends State<MyApp> {
     }
 
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       home: Scaffold(
         appBar: AppBar(
           title: Row(
@@ -93,6 +112,8 @@ class _MyAppState extends State<MyApp> {
               })
             : null,
         bottomNavigationBar: BottomNavigationBar(
+          
+          type: BottomNavigationBarType.fixed,
           onTap: navigationTapped,
           currentIndex: _page,
           items: [
@@ -108,6 +129,10 @@ class _MyAppState extends State<MyApp> {
               icon: Icon(Icons.message),
               title: Text('Messages'),
             ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.web),
+              title: Text('Rest'),
+            ),
           ],
         ),
         body: PageView(
@@ -117,6 +142,7 @@ class _MyAppState extends State<MyApp> {
             _buildBrokerPage(connectionStateIcon),
             _buildSubscriptionsPage(),
             _buildMessagesPage(),
+            _buildFirebaseInteraction(),
           ],
         ),
       ),
@@ -213,6 +239,48 @@ class _MyAppState extends State<MyApp> {
           alignment: WrapAlignment.start,
           children: _buildTopicList(),
         )
+      ],
+    );
+  }
+
+  Column _buildFirebaseInteraction() {
+    return Column(
+      children: <Widget>[
+        Expanded(
+          child: Row(children: <Widget>[
+            Expanded(
+                child: Image.asset(
+              "images/termometro.png",
+              fit: BoxFit.cover,
+            )),
+            Expanded(
+                child: Text(_lastTemperature + " °C",
+                    style: TextStyle(fontSize: 50.0),
+                    textAlign: TextAlign.center)),
+          ]),
+        ),
+        Divider(height: 2.0),
+        Expanded(
+            child: Image.asset("images/ventilador.jpg", fit: BoxFit.cover)),
+        Expanded(
+            child: Row(
+          children: <Widget>[
+            Expanded(
+                child: IconButton(
+                    icon: Icon(Icons.flash_on),
+                    iconSize: 50.0,
+                    onPressed: () {
+                      _handleButtons("liga");
+                    })),
+            Expanded(
+                child: IconButton(
+                    icon: Icon(Icons.flash_off),
+                    iconSize: 50.0,
+                    onPressed: () {
+                      _handleButtons("desliga");
+                    }))
+          ],
+        ))
       ],
     );
   }
