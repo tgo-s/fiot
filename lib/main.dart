@@ -1,9 +1,6 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -20,14 +17,12 @@ class MyApp extends StatefulWidget {
 
 /* Firebase */
 
-_handleButtons(String text) async {
-  _sendToDB(text);
+_handleButtons(Map<String, dynamic> obj) async {
+  _sendToDB(obj);
 }
 
-void _sendToDB(String text) {
-  Firestore.instance
-      .collection("FanCommands")
-      .add({"sender": "Paulo", "timestamp": DateTime.now(), "command": text});
+void _sendToDB(Map<String, dynamic> objToDb) {
+  Firestore.instance.collection("fiot_collection").add(objToDb);
 }
 
 class _MyAppState extends State<MyApp> {
@@ -69,6 +64,24 @@ class _MyAppState extends State<MyApp> {
       default:
         connectionStateIcon = Icons.cloud_off;
     }
+    
+    void onTempChanged(QuerySnapshot data){
+        setState((){
+          this._lastTemperature = data.documents[data.documents.length - 1].data["value"];
+        });
+    }
+
+    void loadTempFromDb() {
+      Firestore.instance
+          .collection("fiot_collection")
+          .where("type", isEqualTo: "temp")
+          .snapshots()
+          .listen((data) => onTempChanged(data));
+    }
+
+    const fiveSec = const Duration(seconds: 5);
+    new Timer.periodic(fiveSec, (Timer t) => loadTempFromDb());
+
     void navigationTapped(int page) {
       _pageController.animateToPage(page,
           duration: const Duration(milliseconds: 300), curve: Curves.ease);
@@ -112,7 +125,6 @@ class _MyAppState extends State<MyApp> {
               })
             : null,
         bottomNavigationBar: BottomNavigationBar(
-          
           type: BottomNavigationBarType.fixed,
           onTap: navigationTapped,
           currentIndex: _page,
@@ -247,21 +259,27 @@ class _MyAppState extends State<MyApp> {
     return Column(
       children: <Widget>[
         Expanded(
-          child: Row(children: <Widget>[
-            Expanded(
-                child: Image.asset(
-              "images/termometro.png",
-              fit: BoxFit.cover,
-            )),
-            Expanded(
-                child: Text(_lastTemperature + " °C",
-                    style: TextStyle(fontSize: 50.0),
-                    textAlign: TextAlign.center)),
-          ]),
+          child: Row(
+            children: <Widget>[
+              Image.asset(
+                "images/ventilador.jpg",
+                fit: BoxFit.fitHeight,
+                height: 70,
+              ),
+              Image.asset(
+                "images/termometro.png",
+                fit: BoxFit.fitHeight,
+                height: 40,
+                width: 40,
+                alignment: Alignment.centerLeft,
+              ),
+              Text(_lastTemperature + " °C",
+                  style: TextStyle(fontSize: 20.0), textAlign: TextAlign.left),
+            ],
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+          ),
         ),
-        Divider(height: 2.0),
-        Expanded(
-            child: Image.asset("images/ventilador.jpg", fit: BoxFit.cover)),
         Expanded(
             child: Row(
           children: <Widget>[
@@ -270,14 +288,16 @@ class _MyAppState extends State<MyApp> {
                     icon: Icon(Icons.flash_on),
                     iconSize: 50.0,
                     onPressed: () {
-                      _handleButtons("liga");
+                      _handleButtons(
+                          {"type": "fan", "command": "power", "value": "on"});
                     })),
             Expanded(
                 child: IconButton(
                     icon: Icon(Icons.flash_off),
                     iconSize: 50.0,
                     onPressed: () {
-                      _handleButtons("desliga");
+                      _handleButtons(
+                          {"type": "fan", "command": "power", "value": "off"});
                     }))
           ],
         ))
@@ -450,6 +470,11 @@ class _MyAppState extends State<MyApp> {
     print('MQTT message: topic is <${event[0].topic}>, '
         'payload is <-- ${message} -->');
     print(client.connectionState);
+
+    if (event[0].topic.contains("fiot/temp")) {
+      _sendToDB({"type": "temp", "command": "monitor", "value": message});
+    }
+
     setState(() {
       messages.add(Message(
         topic: event[0].topic,
